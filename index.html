@@ -847,7 +847,51 @@ const TEMPLATES = [
   { id:'retro',    emoji:'🕹️', name:'Retro Punch',         desc:'Bold retro typography',
     data:{ eyebrow:"FLASH DROP", headline:"LEGACY ATS? NAH.", subhead:"Your talent team deserves better.",
            body:"Switch in 14 days. We'll handle the migration.", cta:"Book demo →", handle:"@joveo",
-           style:'retro', layout:'full', theme:'mono', font:'archivo' } }
+           style:'retro', layout:'full', theme:'mono', font:'archivo' } },
+  { id:'milestone', emoji:'🎉', name:'Company Milestone', desc:'Big number, big moment',
+    data:{ eyebrow:"MILESTONE", headline:"$100M ARR", subhead:"Thank you to every customer and teammate.",
+           body:"Next up: 10x.", cta:"", handle:"@joveo",
+           style:'bold', layout:'stat', theme:'brand', font:'archivo' } },
+  { id:'casestudy', emoji:'📊', name:'Case Study', desc:'Customer-result proof point',
+    data:{ eyebrow:"CASE STUDY", headline:"42% lower cost-per-hire", subhead:"How Acme Corp scaled hiring with Joveo",
+           body:"Read the 3-minute breakdown.", cta:"Download PDF →", handle:"@joveo",
+           style:'pro', layout:'split', theme:'brand', font:'space' } },
+  { id:'webinar',  emoji:'🎤', name:'Webinar',          desc:'Live session announcement',
+    data:{ eyebrow:"LIVE · MAY 15 · 11AM ET", headline:"AI in Talent Acquisition", subhead:"A 30-minute live panel with industry leaders",
+           body:"Free · Limited seats", cta:"Save your seat →", handle:"@joveo",
+           style:'pro', layout:'card', theme:'midnight', font:'space' } },
+  { id:'ebook',    emoji:'📖', name:'Ebook / Guide',     desc:'Content asset promo',
+    data:{ eyebrow:"NEW GUIDE", headline:"The 2026 Programmatic Recruitment Playbook", subhead:"Free 38-page guide for talent leaders",
+           body:"Benchmarks, frameworks and 12 real-world plays.", cta:"Download →", handle:"@joveo",
+           style:'editorial', layout:'split', theme:'cream', font:'playfair' } },
+  { id:'award',    emoji:'🏆', name:'Award / Recognition',desc:'Industry win',
+    data:{ eyebrow:"RECOGNIZED", headline:"HR Tech Product of the Year", subhead:"Thank you to our customers and the HR Tech community.",
+           body:"",  cta:"Read more →", handle:"@joveo",
+           style:'bold', layout:'card', theme:'indigo', font:'archivo' } },
+  { id:'teamspot', emoji:'👤', name:'Team Spotlight',    desc:'Employee or leader feature',
+    data:{ eyebrow:"MEET THE TEAM", headline:"Meet Aisha, Lead ML Engineer", subhead:"Five years, three patents, one epic commute",
+           body:""I came for the problems, I stayed for the people."", cta:"See open roles →", handle:"@joveo",
+           style:'warm', layout:'split', theme:'coral', font:'manrope' } },
+  { id:'podcast',  emoji:'🎧', name:'Podcast Episode',   desc:'New episode drop',
+    data:{ eyebrow:"EPISODE 14", headline:"What Great TA Teams Get Right", subhead:"With the Head of Talent at Atlassian",
+           body:"40 min · Spotify, Apple, YouTube", cta:"Listen →", handle:"@joveo",
+           style:'tech', layout:'split', theme:'midnight', font:'mono' } },
+  { id:'feature',  emoji:'✨', name:'Product Feature',   desc:'Release callout',
+    data:{ eyebrow:"NEW IN JOVEO", headline:"Meet Smart Allocation", subhead:"Pacing and budget decisions, now fully automated",
+           body:"Available to all customers today.", cta:"See what’s new →", handle:"@joveo",
+           style:'creative', layout:'split', theme:'lilac', font:'bricolage' } },
+  { id:'dei',      emoji:'🌍', name:'DEI / Culture',      desc:'Values and inclusion',
+    data:{ eyebrow:"INTERNATIONAL WOMEN’S DAY", headline:"Hire without a blind spot.", subhead:"Diverse slates aren’t a metric. They’re a mindset.",
+           body:"", cta:"", handle:"@joveo",
+           style:'minimal', layout:'quote', theme:'paper', font:'playfair' } },
+  { id:'partner',  emoji:'🤝', name:'Partnership',       desc:'New integration or partner',
+    data:{ eyebrow:"NEW PARTNERSHIP", headline:"Joveo × Workday", subhead:"Programmatic ads, native to your ATS",
+           body:"Launching this quarter for joint customers.", cta:"Learn more →", handle:"@joveo",
+           style:'pro', layout:'card', theme:'slate', font:'space' } },
+  { id:'hiringroles', emoji:'🧭', name:'Multi-Role Hiring', desc:'Several roles at once',
+    data:{ eyebrow:"WE’RE HIRING", headline:"12 open roles. One mission.", subhead:"Engineering · Design · Data · Customer",
+           body:"Remote-friendly in India, the US and Europe.", cta:"See all roles →", handle:"@joveo",
+           style:'creative', layout:'full', theme:'lilac', font:'bricolage' } }
 ];
 
 /* =================================================================
@@ -960,7 +1004,23 @@ function deleteBrand(id) {
 }
 
 // Keep old name as alias so existing calls still work
-function loadBrandKit() { loadBrandKits(); }
+function loadBrandKit() {
+  loadBrandKits();
+  // Seed the default Joveo brand kit once, if none exist yet
+  if (!state.brandKits || state.brandKits.length === 0) {
+    const joveo = createBrand({
+      name: 'Joveo',
+      handle: '@joveo',
+      bg: '#0A2540',
+      accent: '#00D4B4',
+      text: '#ffffff',
+      muted: '#9FB3CC',
+      logo: ''
+    });
+    state.activeBrandId = joveo.id;
+    saveBrandKits();
+  }
+}
 
 /* =================================================================
    MAGIC COMMAND PARSER
@@ -1714,15 +1774,54 @@ function update() { renderPost(); }
 /* =================================================================
    MAGIC COMMAND BAR
    ================================================================= */
-function runMagic() {
+async function runMagic() {
   const v = document.getElementById('magic-input').value.trim();
   if (!v) return;
-  const updates = magicParse(v);
-  Object.assign(state, updates);
-  syncTextInputs();
-  buildPlatformList(); buildStyleGrid(); buildLayoutGrid(); buildThemeGrid(); buildFontSelect();
-  update();
-  showToast('✨ Design updated from command');
+  const btn = document.getElementById('btn-magic');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '✨ Thinking…'; btn.disabled = true; }
+
+  const applyAndRender = (updates, label) => {
+    Object.assign(state, updates);
+    syncTextInputs();
+    buildPlatformList(); buildStyleGrid(); buildLayoutGrid(); buildThemeGrid(); buildFontSelect();
+    update();
+    showToast(label);
+  };
+
+  try {
+    // Try the LLM endpoint first
+    const r = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: v, platform: state.platform })
+    });
+    if (r.ok) {
+      const data = await r.json();
+      if (data && data.ok) {
+        applyAndRender({
+          eyebrow: data.eyebrow ?? state.eyebrow,
+          headline: data.headline ?? state.headline,
+          subhead: data.subhead ?? state.subhead,
+          body: data.body ?? state.body,
+          cta: data.cta ?? state.cta,
+          handle: data.handle || state.handle,
+          style: data.style || state.style,
+          layout: data.layout || state.layout,
+          theme: data.theme || state.theme,
+          font: data.font || state.font
+        }, `✨ Designed by ${data.provider || 'AI'}`);
+        return;
+      }
+    }
+    throw new Error('api-unavailable');
+  } catch (e) {
+    // Fallback: local keyword parser (works with zero config)
+    const updates = magicParse(v);
+    applyAndRender(updates, '✨ Design updated (keyword mode)');
+  } finally {
+    if (btn) { btn.textContent = orig; btn.disabled = false; }
+  }
 }
 
 /* =================================================================
