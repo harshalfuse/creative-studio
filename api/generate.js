@@ -80,7 +80,7 @@ function headers(key) {
 
 async function callGemini(command, platform) {
   const key = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const body = {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
